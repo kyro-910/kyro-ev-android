@@ -19,8 +19,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "GEMINI_API_KEY", "\\\"${localProperties.getProperty("GEMINI_API_KEY", "")}\\\"")
-        buildConfigField("String", "GEMINI_MODEL", "\\\"${localProperties.getProperty("GEMINI_MODEL", "gemini-3.8-flash")}\\\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"${localProperties.getProperty("GEMINI_MODEL", "gemini-3.8-flash")}\"")
     }
 
     buildFeatures { buildConfig = true }

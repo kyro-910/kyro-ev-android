@@ -1,11 +1,12 @@
 package com.kyro.ev
 
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
 
-class GeminiClient {
+class GeminiClient(private val apiKey: String) {
     fun interpret(command: String): JSONObject {
         val prompt = """
 You are E.V., a phone action planner. Convert the user's command into exactly one JSON object and no markdown.
@@ -18,18 +19,28 @@ User command: $command
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("x-goog-api-key", BuildConfig.GEMINI_API_KEY)
+        connection.setRequestProperty("x-goog-api-key", apiKey)
         connection.doOutput = true
 
         val body = JSONObject().apply {
-            put("contents", org.json.JSONArray().put(JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", prompt)))))
+            put(
+                "contents",
+                JSONArray().put(
+                    JSONObject().put(
+                        "parts",
+                        JSONArray().put(JSONObject().put("text", prompt))
+                    )
+                )
+            )
             put("generationConfig", JSONObject().put("temperature", 0.1))
         }.toString()
 
         connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
         val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
         val response = stream.bufferedReader().use { it.readText() }
-        if (connection.responseCode !in 200..299) error("Gemini HTTP ${connection.responseCode}: $response")
+        if (connection.responseCode !in 200..299) {
+            error("Gemini HTTP ${connection.responseCode}: $response")
+        }
 
         val root = JSONObject(response)
         val text = root.getJSONArray("candidates").getJSONObject(0)

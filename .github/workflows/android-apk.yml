@@ -32,7 +32,7 @@ jobs:
         run: |
           cat > local.properties <<EOF
           GEMINI_API_KEY=${GEMINI_API_KEY}
-          GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.0-flash}
+          GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.8-flash}
           EOF
 
       - name: Configure release signing

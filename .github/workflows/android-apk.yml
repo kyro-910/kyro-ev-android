@@ -47,8 +47,8 @@ jobs:
             echo "Using repository release signing key."
           else
             echo "Release signing secrets are not configured; generating a one-build signing key."
-            export EV_KEYSTORE_PASSWORD="$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)"
-            export EV_KEY_PASSWORD="$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)"
+            export EV_KEYSTORE_PASSWORD="$(openssl rand -hex 24)"
+            export EV_KEY_PASSWORD="$(openssl rand -hex 24)"
             export EV_KEY_ALIAS="evrelease"
             keytool -genkeypair -v               -keystore ev-release.jks               -storepass "$EV_KEYSTORE_PASSWORD"               -keypass "$EV_KEY_PASSWORD"               -alias "$EV_KEY_ALIAS"               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=E.V., OU=E.V., O=Kyro, L=India, C=IN"
           fi

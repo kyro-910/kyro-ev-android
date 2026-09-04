@@ -59,7 +59,7 @@ jobs:
           echo "EV_KEY_PASSWORD=$STOREPASS" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
-        run: ./gradlew --no-daemon :app:assembleRelease
+        run: gradle --no-daemon :app:assembleRelease
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/kyro-V23.apk
@@ -81,7 +81,7 @@ jobs:
           retention-days: 14
 
       - name: Build debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

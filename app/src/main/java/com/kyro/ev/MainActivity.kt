@@ -14,12 +14,12 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import org.json.JSONObject
 import java.util.Locale
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
+    private val actionExecutor = Executors.newSingleThreadExecutor()
     private lateinit var status: TextView
     private lateinit var input: TextView
     private var recognizer: SpeechRecognizer? = null
@@ -116,30 +116,6 @@ class MainActivity : Activity() {
     }
 
     private fun handleCommand(text: String) {
-        // Fast-path common YouTube commands so a slow/unavailable Gemini request
-        // cannot block basic phone control. Android can open the YouTube URL directly.
-        val normalized = text.trim()
-        val lower = normalized.lowercase(Locale.getDefault())
-        if (lower.contains("youtube") && lower.contains("search")) {
-            var query = lower.substringAfter("search", "").trim()
-            query = query.removePrefix("for ").trim()
-            query = query.replace(Regex("\\s+and\\s+(play|open).*$"), "").trim()
-            if (query.isNotBlank()) {
-                executor.execute {
-                    try {
-                        val action = if (lower.contains("latest") || lower.contains("first video") || lower.contains("first result"))
-                            "SEARCH_AND_PLAY_LATEST" else "SEARCH_YOUTUBE"
-                        val plan = JSONObject().put("action", action).put("query", query)
-                        val result = ActionExecutor.execute(this, plan)
-                        runOnUiThread { status.text = result }
-                    } catch (e: Exception) {
-                        runOnUiThread { status.text = "E.V. error: ${e.message}" }
-                    }
-                }
-                return
-            }
-        }
-
         val apiKey = getGeminiApiKey()
         if (apiKey.isBlank()) {
             status.text = "Gemini API key needed. Tap Set Gemini API Key."
@@ -162,6 +138,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         recognizer?.destroy()
         executor.shutdownNow()
+        actionExecutor.shutdownNow()
         super.onDestroy()
     }
 }

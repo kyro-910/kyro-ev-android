@@ -63,12 +63,12 @@ jobs:
         run: gradle --no-daemon :app:assembleRelease
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/kyro-V20.apk
+        run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/kyro-V21.apk
 
       - name: Verify APK signature
         run: |
           set -euo pipefail
-          APK="app/build/outputs/apk/release/kyro-V20.apk"
+          APK="app/build/outputs/apk/release/kyro-V21.apk"
           test -s "$APK"
           BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$APK"
@@ -76,8 +76,8 @@ jobs:
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: kyro-V20
-          path: app/build/outputs/apk/release/kyro-V20.apk
+          name: kyro-V21
+          path: app/build/outputs/apk/release/kyro-V21.apk
           if-no-files-found: error
           retention-days: 14
 

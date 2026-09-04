@@ -1,6 +1,7 @@
 package com.kyro.ev
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityEvent
 
@@ -19,12 +20,47 @@ class EvAccessibilityService : AccessibilityService() {
         for (label in labels) {
             val nodes = root.findAccessibilityNodeInfosByText(label)
             for (node in nodes) {
-                if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
-                var parent = node.parent
-                repeat(3) {
-                    if (parent != null && parent.isClickable && parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
-                    parent = parent?.parent
-                }
+                if (clickNodeOrParent(node)) return true
+            }
+        }
+        return false
+    }
+
+    fun searchCurrentApp(query: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val edit = findSearchField(root) ?: return false
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, query)
+        }
+        val set = edit.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        if (!set) return false
+        if (clickSearchButton(root)) return true
+        edit.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        return true
+    }
+
+    private fun findSearchField(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val cls = node.className?.toString().orEmpty()
+        val text = node.text?.toString().orEmpty()
+        val desc = node.contentDescription?.toString().orEmpty()
+        val hint = node.hintText?.toString().orEmpty()
+        val searchable = (text + " " + desc + " " + hint).lowercase()
+        if (node.isEditable && (searchable.contains("search") || cls.contains("EditText", true))) return node
+        for (i in 0 until node.childCount) {
+            val found = node.getChild(i)?.let { findSearchField(it) }
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun clickSearchButton(root: AccessibilityNodeInfo): Boolean {
+        val labels = listOf("search", "go", "submit", "enter")
+        for (label in labels) {
+            val nodes = root.findAccessibilityNodeInfosByText(label)
+            for (node in nodes) {
+                val n = node.text?.toString()?.trim()?.lowercase().orEmpty()
+                val d = node.contentDescription?.toString()?.trim()?.lowercase().orEmpty()
+                if ((n == label || d == label) && clickNodeOrParent(node)) return true
             }
         }
         return false
@@ -32,15 +68,10 @@ class EvAccessibilityService : AccessibilityService() {
 
     fun clickFirstVideoResult(): Boolean {
         val root = rootInActiveWindow ?: return false
-        val titleIds = listOf(
-            "com.google.android.youtube:id/video_title",
-            "com.google.android.youtube:id/title"
-        )
+        val titleIds = listOf("com.google.android.youtube:id/video_title", "com.google.android.youtube:id/title")
         for (id in titleIds) {
             val nodes = root.findAccessibilityNodeInfosByViewId(id)
-            for (node in nodes) {
-                if (clickNodeOrParent(node)) return true
-            }
+            for (node in nodes) if (clickNodeOrParent(node)) return true
         }
         return clickFirstLikelyVideo(root)
     }
@@ -56,9 +87,9 @@ class EvAccessibilityService : AccessibilityService() {
     }
 
     private fun clickFirstLikelyVideo(node: AccessibilityNodeInfo): Boolean {
-        val className = node.className?.toString().orEmpty()
+        val cls = node.className?.toString().orEmpty()
         val text = node.text?.toString()?.trim().orEmpty()
-        if (node.isClickable && className.contains("TextView", ignoreCase = true) && text.length > 8 && !isNavigationText(text)) {
+        if (node.isClickable && cls.contains("TextView", true) && text.length > 8 && !isNavigationText(text)) {
             if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
         }
         for (i in 0 until node.childCount) {

@@ -7,6 +7,8 @@ import java.net.URL
 import java.nio.charset.StandardCharsets
 
 class GeminiClient(private val apiKey: String) {
+    private class GeminiHttpException(val code: Int, message: String) : Exception(message)
+
     fun interpret(command: String): JSONObject {
         val prompt = """
 You are E.V., a phone action planner. Convert the user's command into exactly one JSON object and no markdown.
@@ -15,37 +17,73 @@ For SEARCH_YOUTUBE include a string field named query. For all other actions omi
 User command: $command
 """.trimIndent()
 
-        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${BuildConfig.GEMINI_MODEL}:generateContent")
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("x-goog-api-key", apiKey)
-        connection.doOutput = true
+        val models = linkedSetOf(
+            BuildConfig.GEMINI_MODEL,
+            "gemini-3.7-flash",
+            "gemini-3.6-flash",
+            "gemini-2.5-flash"
+        )
+        var lastError: Exception? = null
 
-        val body = JSONObject().apply {
-            put(
-                "contents",
-                JSONArray().put(
-                    JSONObject().put(
-                        "parts",
-                        JSONArray().put(JSONObject().put("text", prompt))
-                    )
-                )
-            )
-            put("generationConfig", JSONObject().put("temperature", 0.1))
-        }.toString()
-
-        connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
-        val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
-        val response = stream.bufferedReader().use { it.readText() }
-        if (connection.responseCode !in 200..299) {
-            error("Gemini HTTP ${connection.responseCode}: $response")
+        for (model in models) {
+            for (attempt in 0..2) {
+                try {
+                    return request(model, prompt)
+                } catch (e: GeminiHttpException) {
+                    lastError = e
+                    if (e.code != 503 && e.code != 429 && e.code < 500) throw e
+                    if (attempt < 2) {
+                        Thread.sleep(1500L * (1L shl attempt))
+                    }
+                } catch (e: Exception) {
+                    lastError = e
+                    throw e
+                }
+            }
         }
 
-        val root = JSONObject(response)
-        val text = root.getJSONArray("candidates").getJSONObject(0)
-            .getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
-            .trim().removePrefix("```").removeSuffix("```").removePrefix("json").trim()
-        return JSONObject(text)
+        throw lastError ?: IllegalStateException("Gemini request failed")
+    }
+
+    private fun request(model: String, prompt: String): JSONObject {
+        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
+        val connection = url.openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"
+            connection.connectTimeout = 15000
+            connection.readTimeout = 30000
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("x-goog-api-key", apiKey)
+            connection.doOutput = true
+
+            val body = JSONObject().apply {
+                put(
+                    "contents",
+                    JSONArray().put(
+                        JSONObject().put(
+                            "parts",
+                            JSONArray().put(JSONObject().put("text", prompt))
+                        )
+                    )
+                )
+                put("generationConfig", JSONObject().put("temperature", 0.1))
+            }.toString()
+
+            connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
+            val code = connection.responseCode
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) {
+                throw GeminiHttpException(code, "Gemini HTTP $code: $response")
+            }
+
+            val root = JSONObject(response)
+            val text = root.getJSONArray("candidates").getJSONObject(0)
+                .getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
+                .trim().removePrefix("```").removeSuffix("```").removePrefix("json").trim()
+            return JSONObject(text)
+        } finally {
+            connection.disconnect()
+        }
     }
 }

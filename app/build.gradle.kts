@@ -40,6 +40,7 @@ android {
             if (!keystorePath.isNullOrBlank()) {
                 storeFile = file(keystorePath)
                 storePassword = keystorePassword
+                storeType = "JKS"
                 keyAlias = keyAliasValue
                 keyPassword = keyPasswordValue
             }

@@ -54,25 +54,21 @@ jobs:
             -validity 10000 \
             -dname "CN=E.V., OU=E.V., O=Kyro, L=India, C=IN" \
             -noprompt
-          keytool -list \
-            -keystore "$KEYSTORE" \
-            -storetype JKS \
-            -storepass "$STOREPASS" \
-            -alias "$ALIAS" >/dev/null
-          {
-            echo "EV_KEYSTORE_PATH=$KEYSTORE"
-            echo "EV_KEYSTORE_PASSWORD=$STOREPASS"
-            echo "EV_KEY_ALIAS=$ALIAS"
-            echo "EV_KEY_PASSWORD=$STOREPASS"
-          } >> "$GITHUB_ENV"
+          echo "EV_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "EV_KEYSTORE_PASSWORD=$STOREPASS" >> "$GITHUB_ENV"
+          echo "EV_KEY_ALIAS=$ALIAS" >> "$GITHUB_ENV"
+          echo "EV_KEY_PASSWORD=$STOREPASS" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
         run: gradle --no-daemon :app:assembleRelease
 
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/kyro-V20.apk
+
       - name: Verify APK signature
         run: |
           set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release.apk"
+          APK="app/build/outputs/apk/release/kyro-V20.apk"
           test -s "$APK"
           BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$APK"
@@ -80,8 +76,8 @@ jobs:
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: EV-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: kyro-V20
+          path: app/build/outputs/apk/release/kyro-V20.apk
           if-no-files-found: error
           retention-days: 14
 
